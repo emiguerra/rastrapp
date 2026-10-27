@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Rastrapp</string>
+	<string>rastro</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,11 +31,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>rastrapp usa la cámara para tomar fotos y leer sus metadatos.</string>
+	<string>rastro usa la cámara para tus fotos del día.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>rastrapp guarda tu ubicación al tomar una foto.</string>
+	<string>rastro añade el lugar a tus recuerdos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>rastrapp lee fotos de tu galería para mostrar sus metadatos.</string>
+	<string>rastro usa tus fotos para tu foto de perfil.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

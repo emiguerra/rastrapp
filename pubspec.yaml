@@ -38,6 +38,12 @@ dependencies:
   exif: ^3.3.0
   geolocator: ^14.1.2
   url_launcher: ^6.3.3
+  flutter_local_notifications: ^22.3.2
+  timezone: ^0.11.2
+  path_provider: ^2.1.6
+  shared_preferences: ^2.5.6
+  google_fonts: ^9.0.0
+  supabase_flutter: ^2.18.3
 
 dev_dependencies:
   flutter_test:
@@ -61,9 +67,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
+  assets:
+    - assets/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
