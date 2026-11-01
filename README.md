@@ -68,8 +68,12 @@ El código nativo de cámara dual y escáner facial está en
 
 Tablas: `perfiles` (alias, device_id, rostro_url, avatar_url), `capturas` (2 fotos + GPS +
 hora + alias), `amistades`, `estado` (latido), `agenda` (horarios de notificación).
-Bucket público `capturas` para las fotos. El esquema está en `supabase_schema.sql`. La
-configuración (URL + publishable key) está en `lib/backend.dart`.
+Bucket `capturas` para las fotos. El esquema está en `supabase_schema.sql` y el
+endurecimiento de seguridad en `supabase_hardening_v1.sql`.
+
+**Credenciales**: no están versionadas. Copia `lib/secrets.example.dart` a
+`lib/secrets.dart` (ignorado por git) y rellena con tu `supabaseUrl` + `supabaseKey`
+(Supabase → Settings → API). Sin ese archivo, la app no compila.
 
 ## Correr en iOS
 

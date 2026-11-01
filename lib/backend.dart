@@ -5,14 +5,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'captures.dart';
+import 'secrets.dart';
 
 /// Conexión al backend (Supabase): sube las capturas de cada participante y lee
 /// el feed común. Las llaves son públicas por diseño (van en el cliente).
 class Backend {
   Backend._();
 
-  static const String url = 'https://dlhjfaiichoesjjokpjc.supabase.co';
-  static const String anonKey = 'sb_publishable_42O2RsaN7REFxlkfftIkHA_1hQvK7RA';
+  // Credenciales en lib/secrets.dart (no versionado). Ver lib/secrets.example.dart.
+  static const String url = Secrets.supabaseUrl;
+  static const String anonKey = Secrets.supabaseKey;
 
   static bool _ok = false;
   static bool get ready => _ok;

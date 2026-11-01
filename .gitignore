@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Credenciales locales (no versionar)
+lib/secrets.dart
