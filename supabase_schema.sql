@@ -1,7 +1,8 @@
 -- Esquema de rastro para Supabase.
 -- Pégalo en: Supabase → SQL Editor → New query → Run.
--- Crea: participantes (alias, sin email), capturas (2 fotos + GPS), agenda de
--- notificaciones, y el bucket de almacenamiento para las fotos.
+-- Crea: participantes (alias, sin email), capturas (2 fotos + GPS), amistades,
+-- estado (latido de cada app), agenda de notificaciones, y el bucket de
+-- almacenamiento para las fotos.
 -- RLS permisivo: es un test cerrado con la publishable key (no datos sensibles de
 -- terceros; los participantes dan consentimiento al postularse).
 
@@ -10,8 +11,15 @@ create table if not exists public.perfiles (
   id uuid primary key default gen_random_uuid(),
   alias text not null,
   device_id text unique,
+  nombre text,
+  rostro_url text,   -- rostro del registro facial (llave de la investigadora)
+  avatar_url text,   -- foto de perfil elegida por la persona
   created_at timestamptz default now()
 );
+-- Para bases creadas con una versión anterior de este archivo:
+alter table public.perfiles add column if not exists nombre text;
+alter table public.perfiles add column if not exists rostro_url text;
+alter table public.perfiles add column if not exists avatar_url text;
 
 create table if not exists public.capturas (
   id uuid primary key default gen_random_uuid(),
@@ -33,18 +41,46 @@ create table if not exists public.agenda (
   fecha date               -- opcional: fecha concreta
 );
 
+-- Quién agregó a quién como amigo (por device_id).
+create table if not exists public.amistades (
+  id uuid primary key default gen_random_uuid(),
+  de text not null,
+  a text not null,
+  created_at timestamptz default now(),
+  unique (de, a)
+);
+
+-- Latido: lo escribe cada app al abrirse, para medir qué pasa tras la revelación.
+create table if not exists public.estado (
+  device_id text primary key,
+  alias text,
+  last_seen timestamptz,
+  notif_ok boolean,
+  loc_ok boolean,
+  capturas int default 0,
+  revelado boolean default false,
+  revelado_at timestamptz,
+  updated_at timestamptz default now()
+);
+
 -- ── RLS ─────────────────────────────────────────────────────────────────────
-alter table public.perfiles enable row level security;
-alter table public.capturas enable row level security;
-alter table public.agenda   enable row level security;
+alter table public.perfiles   enable row level security;
+alter table public.capturas   enable row level security;
+alter table public.agenda     enable row level security;
+alter table public.amistades  enable row level security;
+alter table public.estado     enable row level security;
 
 drop policy if exists "perfiles todo"   on public.perfiles;
 drop policy if exists "capturas todo"   on public.capturas;
 drop policy if exists "agenda lectura"  on public.agenda;
+drop policy if exists "amistades todo"  on public.amistades;
+drop policy if exists "estado todo"     on public.estado;
 
-create policy "perfiles todo"  on public.perfiles for all    using (true) with check (true);
-create policy "capturas todo"  on public.capturas for all    using (true) with check (true);
-create policy "agenda lectura" on public.agenda   for select using (true);
+create policy "perfiles todo"   on public.perfiles  for all    using (true) with check (true);
+create policy "capturas todo"   on public.capturas  for all    using (true) with check (true);
+create policy "agenda lectura"  on public.agenda    for select using (true);
+create policy "amistades todo"  on public.amistades for all    using (true) with check (true);
+create policy "estado todo"     on public.estado    for all    using (true) with check (true);
 
 -- ── Storage (bucket público para las fotos del test) ────────────────────────
 insert into storage.buckets (id, name, public)
