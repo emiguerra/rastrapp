@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'ajustes_screen.dart';
 import 'amigos_screen.dart';
 import 'backend.dart';
 import 'capture_flow.dart';
+import 'capture_preview.dart';
 import 'captures.dart';
 import 'dev_screen.dart';
 import 'notifications.dart';
@@ -67,12 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          Opacity(
-            opacity: 0.45,
-            child: Image.asset('assets/spray.png',
-                width: 420, fit: BoxFit.contain),
-          ),
-          const Center(child: Wordmark(size: 46)),
+          const Center(child: Wordmark(size: 44)),
           SafeArea(
             child: Align(
               alignment: Alignment.bottomCenter,
@@ -234,18 +229,27 @@ class _FeedTabState extends State<_FeedTab> with WidgetsBindingObserver {
 
   Future<void> capturar() async {
     final c = await captureMomento();
+    if (!mounted || c == null) return;
+    // Vista previa: publicar o repetir antes de guardar.
+    final res = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CapturePreview(capture: c)),
+    );
     if (!mounted) return;
-    if (c != null) {
+    if (res == true) {
+      await CaptureStore.add(c);
       _reload();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: R.oliva,
         content: Text('¡momento publicado!',
-            style: R.mono(size: 12, color: R.verde)),
+            style: R.mono(size: 12, color: R.papel)),
       ));
       Backend.uploadCapture(c).then((_) {
         if (mounted) _cargarTodo();
       });
+    } else if (res == false) {
+      capturar(); // repetir
     }
+    // null → canceló, no hace nada
   }
 
   void _toggleDev() {
