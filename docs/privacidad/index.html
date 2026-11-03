@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rastro · Política de privacidad</title>
+  <style>
+    :root { color-scheme: light dark; --fondo: #fff; --texto: #111; --gris: #666; --linea: #ddd; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo: #000; --texto: #f2f2f2; --gris: #a0a0a0; --linea: #333; }
+    }
+    body { margin: 0; background: var(--fondo); color: var(--texto);
+      font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 40px 16px 64px; }
+    h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 36px 0 8px; }
+    .fecha { color: var(--gris); margin: 0 0 28px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--linea); }
+    mark { padding: 0 3px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Política de privacidad de rastro</h1>
+  <p class="fecha">Última actualización: 3 de noviembre de 2026</p>
+
+  <p>rastro es una aplicación para iOS y Android que funciona como una red social de fotos y es, además, un proyecto de investigación de tesis en Diseño de la Universidad Diego Portales (UDP), en Chile. Esta política explica qué datos recoge la app, para qué se usan, quién puede verlos y cómo pedir que se borren.</p>
+
+  <h2>Quién es responsable</h2>
+  <p>Responsable del estudio: Emilia Guerra. Contacto: <a href="mailto:emilia.guerra@mail.udp.cl">emilia.guerra@mail.udp.cl</a>.</p>
+
+  <h2>Qué datos recogemos</h2>
+  <table>
+    <thead><tr><th>Dato</th><th>Detalle</th></tr></thead>
+    <tbody>
+      <tr><td>Fotos</td><td>Las fotos que tomas en la app. En iOS, una con la cámara trasera y otra con la frontal; en Android, una sola.</td></tr>
+      <tr><td>Ubicación exacta</td><td>Latitud, longitud y precisión del GPS en el momento de cada foto, si das el permiso. La app no sigue tu ubicación en segundo plano.</td></tr>
+      <tr><td>Escaneo facial</td><td>Una foto de tu rostro tomada al registrarte. En iOS, el teléfono detecta tu rostro para guiar el escaneo y solo se sube la foto.</td></tr>
+      <tr><td>Perfil</td><td>Tu alias o nombre de usuario, tu foto de perfil y a quién agregas como amigo.</td></tr>
+      <tr><td>Identificador</td><td>Un código generado por la app al instalarla. No es tu correo ni tu número de teléfono, que no pedimos.</td></tr>
+      <tr><td>Uso de la app</td><td>Fecha y hora de cada foto y de tu último acceso, cantidad de fotos, y si tienes activos los permisos de notificaciones y ubicación.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Para qué los usamos</h2>
+  <ul>
+    <li><strong>Hacer funcionar la app:</strong> mostrar tus fotos y tu perfil, y avisarte cuándo tomar la foto del día. Los avisos se programan en tu teléfono.</li>
+    <li><strong>Investigación:</strong> el equipo analiza las ubicaciones para identificar lugares, comunas y patrones de rutina, y registra cómo sigues usando la app después de la entrevista final.</li>
+    <li><strong>Entrevista final:</strong> tras una semana, el equipo te muestra tu archivo, incluida una versión impresa con tus ubicaciones.</li>
+  </ul>
+  <p><strong>La app no te muestra la ubicación guardada de tus fotos.</strong> La verás en la entrevista final, pero se recoge desde tu primera foto.</p>
+  <p><strong>El escaneo facial no solo crea tu avatar.</strong> La investigadora lo usa para reconocerte en la entrevista y confirmar tu alias. Esa comparación la hace una persona, sin reconocimiento facial automático. A partir de esta foto, el panel de investigación genera además una malla facial, un mapa de los rasgos de tu rostro, que solo ve el equipo de investigación.</p>
+  <p>No vendemos tus datos ni los usamos para publicidad.</p>
+
+  <h2>Quién puede verlos</h2>
+  <ul>
+    <li><strong>El equipo de investigación</strong> puede ver todos los datos anteriores.</li>
+    <li><strong>Otras personas que usan la app</strong> pueden ver tu alias, tu perfil y las fotos que publicas. Si no eliges una foto de perfil, pueden ver en su lugar la foto de tu escaneo facial.</li>
+    <li><strong>Supabase</strong> es el proveedor de la base de datos y del almacenamiento donde se guardan los datos.</li>
+    <li><strong>Google Fonts:</strong> la app puede descargar sus tipografías desde servidores de Google, que reciben la dirección IP de tu teléfono.</li>
+    <li><strong>Apple y Google</strong> distribuyen la app y pueden tratar datos propios de sus servicios según sus políticas.</li>
+    <li><strong>El público del estudio:</strong> cualquier dato de participantes que aparezca en los resultados, publicaciones o la instalación del proyecto irá anonimizado.</li>
+  </ul>
+
+  <h2>Seguridad y riesgos</h2>
+  <p>rastro es un prototipo de investigación, sin cuentas ni contraseñas, y su protección es limitada. Las transmisiones usan HTTPS, pero:</p>
+  <ul>
+    <li>tus fotos, tu escaneo facial y tu foto de perfil se guardan en un almacenamiento con enlaces públicos, de modo que cualquiera que tenga el enlace puede abrirlos sin iniciar sesión;</li>
+    <li>una persona con conocimientos técnicos podría leer la base de datos, incluidas las ubicaciones, usando la llave de acceso incluida en la app.</li>
+  </ul>
+  <p>Tu alias no garantiza el anonimato, porque tus fotos, tu rostro y tus ubicaciones pueden identificarte. Ten esto en cuenta antes de participar.</p>
+
+  <h2>Cuánto tiempo los guardamos</h2>
+  <p>Conservamos tus datos durante un año desde el término de tu participación y luego los borramos.</p>
+
+  <h2>Tus opciones y cómo borrar tus datos</h2>
+  <ul>
+    <li><strong>Permisos:</strong> puedes negar o retirar el acceso a cámara, ubicación, fotos y notificaciones en los ajustes del teléfono. Sin cámara no podrás tomar fotos.</li>
+    <li><strong>Salir del estudio:</strong> en Ajustes, esta opción borra tus datos del teléfono y cancela los avisos, pero <strong>no borra lo que ya se subió a los servidores</strong>.</li>
+    <li><strong>Borrar tus datos de los servidores:</strong> escribe a <a href="mailto:emilia.guerra@mail.udp.cl">emilia.guerra@mail.udp.cl</a> indicando tu alias. Atenderemos tu solicitud en un plazo de un mes.</li>
+  </ul>
+
+  <h2>Menores de edad</h2>
+  <p>rastro está dirigida a personas de 18 años o más. Las personas menores de 18 años no deben usar la app ni participar en el estudio.</p>
+
+  <h2>Cambios a esta política</h2>
+  <p>Si cambia la forma en que tratamos los datos, actualizaremos esta página y su fecha.</p>
+</main>
+</body>
+</html>
