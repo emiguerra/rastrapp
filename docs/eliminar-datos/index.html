@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>rastro · Eliminar tu cuenta y tus datos</title>
+  <style>
+    :root { color-scheme: light dark; --fondo: #fff; --texto: #111; --gris: #666; --linea: #ddd; --caja: #f6f6f6; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo: #000; --texto: #f2f2f2; --gris: #a0a0a0; --linea: #333; --caja: #151515; }
+    }
+    body { margin: 0; background: var(--fondo); color: var(--texto);
+      font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 40px 16px 64px; }
+    h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 20px; margin: 36px 0 8px; }
+    .fecha { color: var(--gris); margin: 0 0 28px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--linea); }
+    mark { padding: 0 3px; }
+    .boton { display: inline-block; margin: 8px 0 4px; padding: 14px 22px; border-radius: 8px;
+      background: var(--texto); color: var(--fondo); text-decoration: none; font-weight: 600; }
+    .boton:hover { opacity: .85; }
+    .caja { background: var(--caja); border: 1px solid var(--linea); border-radius: 8px; padding: 4px 18px; margin: 24px 0; }
+    .nota { color: var(--gris); font-size: 15px; }
+    ol li, ul li { margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Eliminar tu cuenta y tus datos en rastro</h1>
+  <p class="fecha">Última actualización: 3 de noviembre de 2026</p>
+
+  <p><strong>rastro</strong> es una aplicación para iOS y Android y, a la vez, un proyecto de investigación de tesis en Diseño de la Universidad Diego Portales (UDP), en Chile. Esta página explica cómo pedir que se borren tu cuenta y todos los datos asociados, qué se elimina y en cuánto tiempo.</p>
+
+  <div class="caja">
+    <h2 style="margin-top:18px">Solicita la eliminación</h2>
+    <p>El correo se abre con el texto ya escrito. Solo completa tu alias y envíalo.</p>
+    <p><a class="boton" href="mailto:emilia.guerra@mail.udp.cl?subject=rastro%20%C2%B7%20Eliminar%20mi%20cuenta%20y%20mis%20datos&body=Hola%3A%0A%0APido%20que%20se%20eliminen%20mi%20cuenta%20de%20rastro%20y%20todos%20los%20datos%20asociados.%0A%0AMi%20alias%20en%20la%20app%3A%0AFecha%20aproximada%20en%20que%20me%20registr%C3%A9%3A%0A%0AEntiendo%20que%20se%20borran%20mis%20fotos%2C%20mi%20escaneo%20facial%2C%20mi%20foto%20de%20perfil%2C%20mis%20ubicaciones%20y%20mi%20perfil%2C%20y%20que%20esto%20no%20se%20puede%20deshacer.%0A">Eliminar mi cuenta y mis datos</a></p>
+    <p class="nota">Si el botón no funciona en tu teléfono, escribe a <a href="mailto:emilia.guerra@mail.udp.cl">emilia.guerra@mail.udp.cl</a> con el asunto <em>Eliminar mi cuenta y mis datos</em> e indica tu alias.</p>
+  </div>
+
+  <h2>Cómo funciona</h2>
+  <ol>
+    <li>Envía la solicitud desde el botón de arriba e indica tu <strong>alias</strong> en la app. rastro no pide correo ni teléfono al registrarte, así que el alias es la única forma de encontrar tus datos: sin él no podemos identificarlos.</li>
+    <li>Te respondemos para confirmar que recibimos la solicitud y, si hace falta, verificar que la cuenta es tuya.</li>
+    <li>Borramos los datos y te avisamos cuando esté hecho.</li>
+  </ol>
+  <p>No necesitas dar explicaciones ni justificar el motivo. Si participaste en el estudio, esta solicitud vale además como retiro de tu consentimiento.</p>
+
+  <h2>Qué se borra y qué se conserva</h2>
+  <table>
+    <thead><tr><th>Dato</th><th>Qué pasa</th></tr></thead>
+    <tbody>
+      <tr><td>Tus fotos</td><td><strong>Se borran</strong> del almacenamiento, incluidas la trasera y la frontal de cada captura.</td></tr>
+      <tr><td>Escaneo facial</td><td><strong>Se borra</strong>, junto con la malla facial que genera el panel de investigación.</td></tr>
+      <tr><td>Perfil</td><td><strong>Se borran</strong> tu alias, tu foto de perfil y tus amistades. Esto elimina tu cuenta.</td></tr>
+      <tr><td>Ubicaciones</td><td><strong>Se borran</strong> todas las coordenadas guardadas con tus fotos.</td></tr>
+      <tr><td>Uso de la app</td><td><strong>Se borran</strong> las fechas de acceso, el estado de tus permisos y el identificador que la app generó al instalarse.</td></tr>
+      <tr><td>Resultados ya anonimizados</td><td><mark>Se conservan</mark> los análisis agregados en los que ya no es posible reconocerte ni volver a vincular el dato contigo. Una vez anonimizado, el dato no puede recuperarse para separarlo.</td></tr>
+      <tr><td>Tu solicitud</td><td><mark>Se conserva</mark> el correo con tu petición durante un año, como registro de que se cumplió.</td></tr>
+    </tbody>
+  </table>
+  <p class="nota">La eliminación es definitiva: los datos no se pueden recuperar después.</p>
+
+  <h2>En cuánto tiempo</h2>
+  <p>Confirmamos la recepción de tu solicitud y completamos el borrado en un plazo máximo de <strong>30 días</strong>, el mismo plazo que declara la política de privacidad. Puede quedar una copia en los respaldos automáticos del proveedor hasta que esos respaldos expiren.</p>
+
+  <h2>Si solo quieres sacar la app de tu teléfono</h2>
+  <ul>
+    <li><strong>Salir del estudio:</strong> dentro de la app, en Ajustes. Borra los datos guardados en el teléfono y cancela los avisos, pero <strong>no borra lo que ya se subió a los servidores</strong>. Para eso usa el botón de esta página.</li>
+    <li><strong>Desinstalar la app:</strong> tampoco borra los datos del servidor.</li>
+    <li><strong>Permisos:</strong> puedes retirar el acceso a cámara, ubicación, fotos y notificaciones desde los ajustes del teléfono en cualquier momento.</li>
+  </ul>
+
+  <h2>Más información</h2>
+  <p>Qué datos recoge la app y para qué se usan: <a href="../privacidad/">política de privacidad de rastro</a>.</p>
+  <p>Responsable del estudio: Emilia Guerra. Contacto: <a href="mailto:emilia.guerra@mail.udp.cl">emilia.guerra@mail.udp.cl</a>.</p>
+</main>
+</body>
+</html>
