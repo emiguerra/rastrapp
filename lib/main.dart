@@ -19,7 +19,7 @@ import 'remote_post_detalle.dart';
 import 'terminos_screen.dart';
 import 'theme.dart';
 
-const String kAppName = 'rastroNoviembre';
+const String kAppName = 'rastroNov';
 
 /// Modo de la app. En modo usuario no se ve nada de la trastienda.
 final ValueNotifier<bool> devMode = ValueNotifier<bool>(false);
