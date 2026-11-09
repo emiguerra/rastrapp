@@ -1,92 +1,99 @@
-# rastro
+# rastrapp
 
-App del proyecto de tesis **rastro** (diseño, UDP): una app social tipo *BeReal* que,
-detrás de una fachada de archivo de redes sociales, captura la **ubicación en el origen**
-de cada foto y construye un **expediente** del recorrido de cada persona. El dato existe
-desde el primer momento, pero la app nunca se lo muestra al usuario: se revela después,
-en una entrevista, impreso en papel térmico. Es un ejercicio de diseño crítico sobre la
-**resignación informada** frente a la vigilancia algorítmica.
+Aplicación del proyecto de tesis rastro (Diseño, UDP), hecha en Flutter para iOS y Android.
 
-> Antes este repo era un lector de EXIF. Eso quedó obsoleto: ahora el GPS se captura **en
-> el momento de la foto** (no del EXIF), que es justo lo que en los 2010 se perdía.
+Por fuera es una red social de fotos parecida a BeReal: una foto al día, a una hora sorpresa. Por dentro guarda el lugar exacto donde se tomó cada foto. La app nunca le muestra ese dato a quien la usa; se revela una semana después, en una entrevista, impreso en papel térmico. El proyecto es un ejercicio de diseño crítico sobre la resignación informada frente a la vigilancia algorítmica.
 
-## El sistema (tres piezas)
+## Camuflaje
 
-1. **App Flutter (este repo)** — lo que usa el participante. Captura, perfil, feed social,
-   notificaciones. Sube todo a Supabase.
-2. **Backend Supabase** — base de datos + almacenamiento de fotos. Llaves públicas
-   (publishable key) embebidas en la app por diseño; RLS permisivo para un test cerrado
-   con consentimiento.
-3. **Herramientas de investigador** (viven en `rastro 2/`, fuera de este repo):
-   - `panel-rastro.html` — panel web que lee Supabase: mapa, patrones por comuna,
-     malla biométrica facial, escáner teatral de identificación, seguimiento
-     post-revelación.
-   - `imprimir_expediente.py` — imprime el expediente de cada participante en una
-     impresora térmica **Sewoo SLK-TS400** (ESC/POS por USB).
+La app debe verse como una red social cualquiera: fondo negro, texto blanco, grises neutros y tipografía sans. La identidad gráfica de rastro (verde ácido, tipografía pixel, grano de spray) no se usa aquí. Se reserva para la revelación: el panel de la investigadora, el expediente impreso y la instalación.
 
-## Qué hace la app
+Esto no es una decisión estética. El estudio depende de que las personas crean que usan una red social común, y una marca llamativa avisaría que hay algo más y alteraría lo que se quiere medir.
 
-- **Onboarding**: inicio minimal → términos y condiciones → **verificación biométrica**
-  (enrolamiento facial por pasos, estilo Face ID, con Vision) → **crear perfil** (foto
-  elegida + nombre). El rostro biométrico es la llave de identificación de la
-  investigadora; es distinto de la foto de perfil pública.
-- **Captura dual**: una foto trasera + una frontal **al mismo tiempo**
-  (`AVCaptureMultiCamSession`, nativo en Swift), con el **GPS capturado en el momento**.
-- **Feed social**: amigos reales (se agregan entre participantes), detalle de post con
-  reacciones y comentarios, perfiles tocables. Mecánica BeReal: publica para ver a los
-  demás.
-- **Notificaciones**: una al día a hora definida en la **agenda** de Supabase (misma hora
-  para todos) con jitter, programadas localmente (sin servidor de push).
-- **Latido**: registra último acceso + estado de permisos + nº de capturas, para medir el
-  comportamiento **después de la revelación**.
-- **Modo desarrollador** (oculto: mantener presionado el wordmark): trastienda con el GPS
-  extraído de cada captura, programar notificaciones, exportar JSON.
+## Estructura de carpetas
 
-## Estructura (`lib/`)
+```text
+lib/                  código Dart de la app
+ios/Runner/           proyecto de iOS; AppDelegate.swift tiene la cámara dual y el escáner facial
+android/              proyecto de Android
+assets/               imágenes de la app
+supabase_schema.sql   esquema de la base de datos
+supabase_hardening_v1.sql   primer paso de endurecimiento, opcional
+```
 
-| Archivo | Rol |
-|---|---|
-| `main.dart` | Shell con barra inferior (Feed · Amigos · Perfil), feed, onboarding |
-| `terminos_screen.dart` | Términos y condiciones (consentimiento) |
-| `biometria_screen.dart` | Enrolamiento facial por pasos |
-| `perfil_editor.dart` | Crear/editar perfil (foto elegida + nombre) |
-| `perfil_screen.dart` / `otro_perfil_screen.dart` | Tu perfil / el de otro participante |
-| `amigos_screen.dart` | Lista de participantes, buscar y agregar |
-| `remote_post_detalle.dart` | Detalle de post (reacciones, comentarios) |
-| `capture_flow.dart` | Flujo de captura (cámara dual + GPS); puente al nativo |
-| `captures.dart` | Modelo `Capture` + almacenamiento local |
-| `notifications.dart` | Notificaciones locales + lectura de la agenda |
-| `backend.dart` | Supabase: perfiles, capturas, amistades, estado, agenda, avatar |
-| `ajustes_screen.dart` | Cómo funciona · estado de notis · salir del estudio |
-| `dev_screen.dart` | Trastienda (modo desarrollador) |
-| `photo.dart` / `theme.dart` | Widgets de foto (dual, grano) / identidad gráfica rastro |
+Los archivos de `lib/` se dividen así:
 
-El código nativo de cámara dual y escáner facial está en
-`ios/Runner/AppDelegate.swift` (platform channel `rastro/multicam`).
+```text
+main.dart                 barra inferior (Feed, Amigos, Perfil), feed y onboarding
+terminos_screen.dart      términos y condiciones
+biometria_screen.dart     registro facial
+perfil_editor.dart        crear y editar perfil
+perfil_screen.dart        tu perfil
+otro_perfil_screen.dart   perfil de otro participante
+memorias_screen.dart      tu semana, día a día
+amigos_screen.dart        lista de participantes
+remote_post_detalle.dart  detalle de un post
+capture_flow.dart         captura de foto y GPS, y conexión con el código nativo
+capture_preview.dart      vista previa tras capturar
+captures.dart             modelo de captura y almacenamiento local
+notifications.dart        notificaciones locales y lectura de la agenda
+backend.dart              conexión con Supabase
+secrets.dart              credenciales, no versionado
+ajustes_screen.dart       ajustes y ayuda
+dev_screen.dart           trastienda del modo desarrollador
+photo.dart                foto doble y placeholders
+theme.dart                tema neutro
+```
 
-## Backend (Supabase)
+## Flujo de la app
 
-Tablas: `perfiles` (alias, device_id, rostro_url, avatar_url), `capturas` (2 fotos + GPS +
-hora + alias), `amistades`, `estado` (latido), `agenda` (horarios de notificación).
-Bucket `capturas` para las fotos. El esquema está en `supabase_schema.sql` y el
-endurecimiento de seguridad en `supabase_hardening_v1.sql`.
+Al abrirla por primera vez se pasa por el inicio, los términos y condiciones, el registro facial y la creación del perfil, en ese orden. El rostro del registro es la llave con la que la investigadora reconoce a cada persona en la entrevista, y es distinto de la foto de perfil que cada una elige.
 
-**Credenciales**: no están versionadas. Copia `lib/secrets.example.dart` a
-`lib/secrets.dart` (ignorado por git) y rellena con tu `supabaseUrl` + `supabaseKey`
-(Supabase → Settings → API). Sin ese archivo, la app no compila.
+En el registro facial la persona mueve la cabeza en círculo y los segmentos de un anillo se van llenando, usando la detección de rostros de Vision. La vista previa va en espejo para que el movimiento se sienta natural, pero la foto que se guarda va sin espejo.
 
-## Correr en iOS
+Para capturar, la app toma dos fotos al mismo tiempo, una con la cámara trasera y otra con la frontal, y guarda el GPS en ese instante. Después muestra una vista previa con tres opciones: publicar, repetir o cancelar. Nada se guarda hasta publicar. En la foto doble, tocar el recuadro chico intercambia la frontal con la trasera.
 
-Desarrollo principalmente **iPhone** (la cámara dual y el GPS no se prueban en simulador).
+El feed muestra las publicaciones de otros participantes, y para verlas hay que publicar primero la propia. En Amigos se puede buscar y agregar a otros participantes, y tocar un nombre abre su perfil. En el perfil, el ícono de calendario abre las Memorias, que muestran la semana día a día. La racha cuenta días consecutivos y se corta si pasa un día sin captura.
+
+Las notificaciones son locales, una por día, a la hora que define la tabla `agenda` en Supabase, con hasta 20 minutos de variación al azar. No hay servidor de push. Cada vez que se abre la app, esta registra su último acceso, el estado de los permisos y la cantidad de capturas, para poder medir qué pasa después de la revelación.
+
+El modo desarrollador se activa manteniendo presionado el nombre `rastro.` en la parte de arriba del feed. Muestra el GPS de cada captura y permite reprogramar las notificaciones y exportar los datos en JSON.
+
+## iOS y Android
+
+El código es el mismo en las dos plataformas, pero las funciones nativas de iOS tienen un respaldo en Android. En Android la cámara toma una sola foto con la cámara del sistema, y el registro facial es una selfie simple. El GPS, las comunas y el expediente funcionan igual en ambas.
+
+## Credenciales de Supabase
+
+Las credenciales no están en el repositorio. Para correr la app hay que copiar la plantilla y completarla con la URL y la llave del proyecto (en Supabase, en Settings, API):
+
+```sh
+cp lib/secrets.example.dart lib/secrets.dart
+```
+
+El archivo `lib/secrets.dart` está en `.gitignore`. Sin él la app no compila.
+
+## Base de datos
+
+Las tablas son `perfiles`, `capturas`, `amistades`, `estado` (el latido de cada app) y `agenda` (los horarios de las notificaciones), más un bucket de almacenamiento llamado `capturas` para las fotos. Todo se crea con `supabase_schema.sql`.
+
+## Compilar
+
+El proyecto debe estar fuera de carpetas sincronizadas con iCloud, como el Escritorio o Documentos. iCloud saca archivos del disco y los builds fallan con `Operation timed out`. Una carpeta como `~/dev/` evita el problema.
 
 ```sh
 flutter pub get
-cd ios && pod install && cd ..
-# Build + instalar en un iPhone conectado (requiere Modo Desarrollador activo):
 ```
 
-Por el roce entre Flutter y Xcode 26, el pipeline se hace con `xcodebuild` + `devicectl`
-en vez de `flutter run`:
+### iOS
+
+Requiere iOS 15 o superior. La cámara dual y el GPS no funcionan en el simulador, así que hay que usar un iPhone con el Modo Desarrollador activado.
+
+```sh
+cd ios && pod install && cd ..
+```
+
+Con Xcode 26, `flutter run` falló por un problema entre Flutter y Xcode. Compilar con `xcodebuild` o archivar desde Xcode sí funciona:
 
 ```sh
 cd ios
@@ -97,17 +104,36 @@ xcrun devicectl device install app --device <UDID> \
   build/Build/Products/Release-iphoneos/Runner.app
 ```
 
-## Límites y notas
+### Android
 
-- **Firma gratis (Personal Team)**: la app caduca a los 7 días y cada dispositivo debe
-  registrarse. Para repartir a voluntarios se necesita **TestFlight** (cuenta Apple de
-  pago).
-- Las notificaciones son **locales** (no push): no necesitan servidor, pero la hora debe
-  estar definida con antelación en la agenda.
-- La identificación en la entrevista es **manual con confirmación visual** (la
-  investigadora sostiene la llave rostro ↔ alias), no reconocimiento automático.
+Necesita JDK 17 y el Android SDK con la plataforma 35.
+
+```sh
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export ANDROID_HOME=$HOME/Library/Android/sdk
+flutter build apk --release --target-platform android-arm64
+```
+
+El APK queda en `build/app/outputs/flutter-apk/app-release.apk`. Solo incluye arm64, que cubre los teléfonos Android actuales, y queda firmado con la llave de debug: sirve para compartirlo por un enlace, no para publicarlo en Play Store.
+
+## Distribución
+
+Una app firmada con una cuenta gratuita de Apple caduca a los 7 días y solo corre en los dispositivos registrados. Para repartirla a más personas hay que subirla a TestFlight con una cuenta de pago.
+
+Para eso se abre `ios/Runner.xcworkspace` en Xcode, se elige el equipo en Signing & Capabilities (tanto en el target Runner como en RunnerTests) y se usa Product, Archive con destino Any iOS Device, y luego Distribute App, App Store Connect. Las notificaciones son locales, por lo que no hace falta ninguna capacidad extra ni APNs.
+
+## Herramientas de la investigadora
+
+Fuera de este repositorio hay un panel web y un script de impresión. No se versionan porque leen rostros y ubicaciones de los participantes. El panel muestra el mapa, las comunas, los patrones de rutina, la malla biométrica y el seguimiento posterior a la revelación. El script imprime el expediente de cada persona en una impresora térmica Sewoo SLK-TS400, por USB y con comandos ESC/POS.
+
+La identificación de cada persona en la entrevista es manual: la investigadora compara el rostro del registro con la persona que tiene delante y confirma el alias. No hay reconocimiento facial automático.
+
+## Estado
+
+Es una demo para un estudio cerrado, con pocos participantes y consentimiento informado. El backend no tiene autenticación y sus reglas de acceso son permisivas, por lo que no conviene usar este código con datos reales de terceros sin endurecerlo.
+
+Antes de abrirlo a más gente hace falta activar la autenticación anónima de Supabase, escribir reglas RLS por usuario, hacer privado el bucket con URLs firmadas y rotar las credenciales. `supabase_hardening_v1.sql` es un primer paso, porque deja la tabla `capturas` en modo solo agregar, pero no cierra la lectura.
 
 ## Bibliotecas
 
-`image_picker`, `geolocator`, `flutter_local_notifications`, `timezone`, `path_provider`,
-`shared_preferences`, `google_fonts`, `supabase_flutter`.
+`image_picker`, `geolocator`, `flutter_local_notifications`, `timezone`, `path_provider`, `shared_preferences`, `google_fonts` y `supabase_flutter`.

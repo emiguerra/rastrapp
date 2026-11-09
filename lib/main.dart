@@ -299,7 +299,6 @@ class _FeedTabState extends State<_FeedTab> with WidgetsBindingObserver {
   Future<void> capturar() async {
     final c = await captureMomento();
     if (!mounted || c == null) return;
-
     // GPS obligatorio: sin ubicación la captura no sirve para rastro. No se
     // publica ni se sube nada; se pide activar el GPS y repetir.
     if (!c.hasGps) {

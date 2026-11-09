@@ -32,6 +32,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>rastro usa la cámara para tus fotos del día.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>rastro añade el lugar a tus recuerdos. Solo usa tu ubicación mientras la app está abierta.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>rastro añade el lugar a tus recuerdos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
