@@ -25,7 +25,7 @@ El número de build lo asigna Xcode Cloud, así que ya no hace falta subir el `+
 3. **Editar el workflow:**
    - **Environment:** la última versión estable de Xcode y de macOS.
    - **Environment Variables:** agrega `SUPABASE_URL` y `SUPABASE_LLAVE` con los valores de `lib/secrets.dart`. Marca ambas como **Secret**.
-   - **Start Conditions:** *Branch Changes* en `main` (o solo *Manual Start*, si preferimos decidir cuándo subir).
+   - **Start Conditions:** *Branch Changes* → rama `main`, con *Auto-cancel Builds* activado. Cada push a `main` sube un build a TestFlight. Quita la condición por defecto de *Pull Request Changes*, si aparece.
    - **Actions:** *Archive* → plataforma iOS, esquema `Runner`, distribución **TestFlight (Internal Testing Only)**.
    - **Post-Actions:** *TestFlight Internal Testing* → elige el grupo de testers.
 4. **Número de build inicial.** Ya subimos builds a mano, así que en App Store Connect → la app → *Xcode Cloud* → *Settings* → *Build Number* hay que fijar el siguiente número en uno mayor que el último build subido a TestFlight.
