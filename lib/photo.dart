@@ -5,17 +5,16 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 
-/// Gradientes por "tono" para los placeholders de foto (fachada).
+/// Placeholders neutros (grises planos) cuando no hay foto real.
 const List<List<Color>> kTones = [
-  [Color(0xFF1C1C1E), Color(0xFF0B0B0B)],
-  [Color(0xFF26301A), Color(0xFF12140B)],
-  [Color(0xFF2A2436), Color(0xFF121016)],
-  [Color(0xFF30241A), Color(0xFF14100B)],
+  [Color(0xFF2A2A2C), Color(0xFF161618)],
+  [Color(0xFF26262A), Color(0xFF151517)],
+  [Color(0xFF2E2E31), Color(0xFF17171A)],
+  [Color(0xFF232326), Color(0xFF141416)],
 ];
 
-/// Una "foto": si hay archivo real, la muestra; si no, un gradiente granulado
-/// (fachada). Si [locked] es true, va difuminada (mecánica BeReal: se revela
-/// cuando tú publicas).
+/// Una "foto": si hay archivo/URL real, la muestra; si no, un gris plano.
+/// Si [locked] es true, va difuminada (mecánica BeReal: se revela al publicar).
 class GrainyPhoto extends StatelessWidget {
   final File? file;
   final String? url;
@@ -38,8 +37,8 @@ class GrainyPhoto extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: kTones[tone % kTones.length],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
       ),
     );
@@ -55,24 +54,8 @@ class GrainyPhoto extends StatelessWidget {
               )
             : placeholder;
 
-    // Grano: la textura de spray a baja opacidad, mezclada.
-    base = Stack(
-      fit: StackFit.expand,
-      children: [
-        base,
-        IgnorePointer(
-          child: Opacity(
-            opacity: 0.06,
-            child: Image.asset('assets/spray.png',
-                fit: BoxFit.cover, repeat: ImageRepeat.repeat),
-          ),
-        ),
-      ],
-    );
-
     if (!locked) return base;
 
-    // Difuminado + candado.
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -80,16 +63,14 @@ class GrainyPhoto extends StatelessWidget {
           imageFilter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: base,
         ),
-        Container(color: Colors.black.withValues(alpha: 0.28)),
+        Container(color: Colors.black.withValues(alpha: 0.3)),
         Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.lock_outline_rounded,
-                  color: R.papel, size: 30),
+              const Icon(Icons.lock_outline_rounded, color: R.papel, size: 28),
               const SizedBox(height: 8),
-              Text('PUBLICA PARA VER',
-                  style: R.mono(size: 11, color: R.papel)),
+              Text('Publica para ver', style: R.mono(size: 12, color: R.papel)),
             ],
           ),
         ),
@@ -99,7 +80,8 @@ class GrainyPhoto extends StatelessWidget {
 }
 
 /// Foto doble cámara estilo BeReal: foto grande + inset arriba-izquierda.
-class DualPhoto extends StatelessWidget {
+/// Tocar la intercambia (la frontal pasa a grande y viceversa).
+class DualPhoto extends StatefulWidget {
   final File? big;
   final File? small;
   final String? bigUrl;
@@ -115,38 +97,62 @@ class DualPhoto extends StatelessWidget {
     this.smallUrl,
     this.tone = 0,
     this.locked = false,
-    this.radius = 22,
+    this.radius = 16,
   });
 
   @override
+  State<DualPhoto> createState() => _DualPhotoState();
+}
+
+class _DualPhotoState extends State<DualPhoto> {
+  bool _swapped = false;
+
+  @override
   Widget build(BuildContext context) {
-    final hasSmall = small != null || (smallUrl != null && smallUrl!.isNotEmpty);
+    final hasSmall = widget.small != null ||
+        (widget.smallUrl != null && widget.smallUrl!.isNotEmpty);
+
+    // Qué va grande y qué va en el inset según el swap.
+    final bigFile = _swapped ? widget.small : widget.big;
+    final bigUrl = _swapped ? widget.smallUrl : widget.bigUrl;
+    final smallFile = _swapped ? widget.big : widget.small;
+    final smallUrl = _swapped ? widget.bigUrl : widget.smallUrl;
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(widget.radius),
       child: AspectRatio(
         aspectRatio: 3 / 4,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            GrainyPhoto(file: big, url: bigUrl, tone: tone, locked: locked),
+            GrainyPhoto(
+                file: bigFile,
+                url: bigUrl,
+                tone: widget.tone,
+                locked: widget.locked),
             if (hasSmall)
               Positioned(
                 top: 12,
                 left: 12,
-                child: Container(
-                  width: 84,
-                  height: 112,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.black, width: 2.5),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: GrainyPhoto(
-                      file: small,
-                      url: smallUrl,
-                      tone: (tone + 2),
-                      locked: locked,
+                child: GestureDetector(
+                  onTap: widget.locked
+                      ? null
+                      : () => setState(() => _swapped = !_swapped),
+                  child: Container(
+                    width: 96,
+                    height: 128,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.black, width: 3),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(9),
+                      child: GrainyPhoto(
+                        file: smallFile,
+                        url: smallUrl,
+                        tone: (widget.tone + 2),
+                        locked: widget.locked,
+                      ),
                     ),
                   ),
                 ),
@@ -165,9 +171,9 @@ class MetaPill extends StatelessWidget {
   const MetaPill({super.key, required this.icon, required this.text});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
+          color: Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(

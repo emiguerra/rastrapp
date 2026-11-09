@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'ajustes_screen.dart';
 import 'backend.dart';
 import 'captures.dart';
+import 'memorias_screen.dart';
 import 'perfil_editor.dart';
 import 'photo.dart';
 import 'theme.dart';
@@ -60,6 +61,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
         title: Text('TU PERFIL', style: R.mono(size: 13, color: R.papel)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.calendar_today_outlined, color: R.papel),
+            tooltip: 'Memorias',
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MemoriasScreen())),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined, color: R.papel),
             onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AjustesScreen())),
@@ -83,7 +90,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: const LinearGradient(
-                            colors: [Color(0xFF2C2C2C), Color(0xFF17180F)]),
+                            colors: [Color(0xFF2A2A2C), Color(0xFF161618)]),
                         border: Border.all(color: R.verde, width: 2),
                       ),
                       child: (_avatar != null && File(_avatar!).existsSync())
@@ -124,7 +131,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 children: [
                   _Stat(value: '${caps.length}', label: 'MOMENTOS'),
                   _Stat(value: '$dias', label: 'DÍAS'),
-                  _Stat(value: '🔥 $dias', label: 'RACHA'),
+                  _Stat(value: '🔥 ${_racha(caps)}', label: 'RACHA'),
                 ],
               ),
               const SizedBox(height: 26),
@@ -158,6 +165,27 @@ class _PerfilScreenState extends State<PerfilScreen> {
         },
       ),
     );
+  }
+
+  /// Racha real: días consecutivos publicando, terminando hoy (o ayer si aún no
+  /// publicas hoy). Se rompe si pasa un día sin captura.
+  int _racha(List<Capture> caps) {
+    if (caps.isEmpty) return 0;
+    final dias = caps
+        .map((c) => DateTime(c.takenAt.year, c.takenAt.month, c.takenAt.day))
+        .toSet();
+    final ahora = DateTime.now();
+    var d = DateTime(ahora.year, ahora.month, ahora.day);
+    if (!dias.contains(d)) {
+      d = d.subtract(const Duration(days: 1));
+      if (!dias.contains(d)) return 0; // ni hoy ni ayer → sin racha
+    }
+    int r = 0;
+    while (dias.contains(d)) {
+      r++;
+      d = d.subtract(const Duration(days: 1));
+    }
+    return r;
   }
 
   int _diasUnicos(List<Capture> caps) {

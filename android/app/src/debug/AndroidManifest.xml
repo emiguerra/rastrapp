@@ -4,4 +4,14 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- DEBUG / tesis rastro. La lectura de IMÁGENES ya vive en src/main/ para la
+         función "Recuerdos" de participante (autorizada por consentimiento +
+         signoff). Lo que queda SOLO en debug es READ_MEDIA_VIDEO, para la pieza de
+         reconstrucción dev (lib/dev_galeria_screen.dart), que un build de
+         participante no necesita. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <!-- Android 13-: fallback de almacenamiento para la misma pieza. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
 </manifest>

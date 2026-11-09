@@ -5,7 +5,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'captures.dart';
+import 'recuerdos.dart';
 import 'secrets.dart';
+
+/// Resultado de subir una captura. Distingue los tres casos para que la UI
+/// pueda responder distinto a cada uno (y no mentir con "publicado").
+enum UploadResult {
+  ok, // subida + fila insertadas
+  sinGps, // se rechaza: sin ubicación la captura no sirve para rastro
+  falla, // sin red / error del backend: no quedó registrada (y sin huérfanas)
+}
 
 /// Conexión al backend (Supabase): sube las capturas de cada participante y lee
 /// el feed común. Las llaves son públicas por diseño (van en el cliente).
@@ -188,16 +197,26 @@ class Backend {
   }
 
   // ── Subida de una captura (2 fotos + GPS) ─────────────────────────────────
-  static Future<bool> uploadCapture(Capture c) async {
-    if (!_ok) return false;
-    try {
-      final a = await alias();
-      final d = await deviceId();
-      final bucket = _db.storage.from('capturas');
+  /// Sube una captura de forma ATÓMICA: o quedan la(s) foto(s) + la fila, o no
+  /// queda nada. El GPS es obligatorio (sin ubicación se rechaza antes de subir
+  /// nada), y si el insert falla se borran las fotos recién subidas para no
+  /// dejar huérfanas en el storage.
+  static Future<UploadResult> uploadCapture(Capture c) async {
+    if (!_ok) return UploadResult.falla;
+    // GPS obligatorio: una captura sin geo no sirve para rastro. No se sube la
+    // foto ni se inserta la fila; la UI pedirá repetir con ubicación activa.
+    if (c.lat == null || c.lng == null) return UploadResult.sinGps;
 
+    final a = await alias();
+    final d = await deviceId();
+    final bucket = _db.storage.from('capturas');
+    final subidos = <String>[]; // para revertir si algo falla después
+
+    try {
       final backName = '$d/${c.id}_back.jpg';
       await bucket.upload(backName, File(c.imagePath),
           fileOptions: const FileOptions(upsert: true));
+      subidos.add(backName);
       final backUrl = bucket.getPublicUrl(backName);
 
       String? frontUrl;
@@ -205,6 +224,7 @@ class Backend {
         final frontName = '$d/${c.id}_front.jpg';
         await bucket.upload(frontName, File(c.frontPath!),
             fileOptions: const FileOptions(upsert: true));
+        subidos.add(frontName);
         frontUrl = bucket.getPublicUrl(frontName);
       }
 
@@ -217,6 +237,50 @@ class Backend {
         'lng': c.lng,
         'accuracy': c.accuracy,
         'taken_at': c.takenAt.toIso8601String(),
+      });
+      return UploadResult.ok;
+    } catch (_) {
+      // El insert (o la 2ª subida) falló: deshacer lo subido para no dejar
+      // una foto huérfana sin su fila. Best-effort; si el borrado no tiene
+      // permiso, la próxima subida (mismo nombre, upsert) la sobrescribe.
+      if (subidos.isNotEmpty) {
+        try {
+          await bucket.remove(subidos);
+        } catch (_) {}
+      }
+      return UploadResult.falla;
+    }
+  }
+
+  // ── "Recuerdos": resumen del escaneo de galería + 5 fotos (bucket PRIVADO) ─
+  /// Sube al backend SOLO el resumen (conteo, fechas, lugares) y las 5 fotos
+  /// seleccionadas, al bucket privado `galeria`. La galería completa nunca sale
+  /// del teléfono.
+  static Future<bool> subirRecuerdos(RecuerdosResumen r) async {
+    if (!_ok) return false;
+    try {
+      final d = await deviceId();
+      final a = await alias();
+      final bucket = _db.storage.from('galeria');
+      final paths = <String>[];
+      for (var i = 0; i < r.seleccion.length; i++) {
+        final bytes = await r.seleccion[i].bytes();
+        if (bytes == null) continue;
+        final name = '$d/reco_$i.jpg';
+        await bucket.uploadBinary(name, bytes,
+            fileOptions:
+                const FileOptions(upsert: true, contentType: 'image/jpeg'));
+        paths.add(name);
+      }
+      String? soloFecha(DateTime? dt) => dt?.toIso8601String().substring(0, 10);
+      await _db.from('recuerdos').insert({
+        'device_id': d,
+        'alias': a,
+        'total_fotos': r.total,
+        'desde': soloFecha(r.desde),
+        'hasta': soloFecha(r.hasta),
+        'lugares': r.lugaresJson(),
+        'fotos': paths,
       });
       return true;
     } catch (_) {
@@ -293,6 +357,70 @@ class Backend {
     }
   }
 
+  // ── Comentarios y reacciones de una captura (sociales, compartidos) ───────
+  static Future<List<Map<String, dynamic>>> comentariosDe(String capturaId) async {
+    if (!_ok) return [];
+    try {
+      final rows = await _db
+          .from('comentarios')
+          .select()
+          .eq('captura_id', capturaId)
+          .order('created_at');
+      return (rows as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<bool> comentar(String capturaId, String texto) async {
+    if (!_ok) return false;
+    try {
+      await _db.from('comentarios').insert({
+        'captura_id': capturaId,
+        'device_id': await deviceId(),
+        'alias': await alias(),
+        'texto': texto,
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> reaccionesDe(String capturaId) async {
+    if (!_ok) return [];
+    try {
+      final rows =
+          await _db.from('reacciones').select().eq('captura_id', capturaId);
+      return (rows as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Fija (o quita, con [emoji] == null) mi reacción a una captura. Una por
+  /// persona: el upsert reemplaza la anterior.
+  static Future<void> reaccionar(String capturaId, String? emoji) async {
+    if (!_ok) return;
+    try {
+      final d = await deviceId();
+      if (emoji == null) {
+        await _db
+            .from('reacciones')
+            .delete()
+            .eq('captura_id', capturaId)
+            .eq('device_id', d);
+      } else {
+        await _db.from('reacciones').upsert({
+          'captura_id': capturaId,
+          'device_id': d,
+          'alias': await alias(),
+          'emoji': emoji,
+        }, onConflict: 'captura_id,device_id');
+      }
+    } catch (_) {}
+  }
+
   // ── Agenda de notificaciones (misma hora para todos) ──────────────────────
   /// Devuelve la lista de horarios programados por el investigador.
   static Future<List<AgendaSlot>> fetchAgenda() async {
@@ -310,6 +438,7 @@ class Backend {
 
 /// Una captura leída del backend (de cualquier participante).
 class RemoteCapture {
+  final String? id; // id de la captura (para comentarios/reacciones)
   final String alias;
   final String? deviceId;
   final String backUrl;
@@ -319,6 +448,7 @@ class RemoteCapture {
   final DateTime takenAt;
 
   RemoteCapture({
+    this.id,
     required this.alias,
     this.deviceId,
     required this.backUrl,
@@ -329,6 +459,7 @@ class RemoteCapture {
   });
 
   factory RemoteCapture.fromJson(Map<String, dynamic> j) => RemoteCapture(
+        id: j['id'] as String?,
         alias: (j['alias'] ?? 'anónimo') as String,
         deviceId: j['device_id'] as String?,
         backUrl: (j['back_url'] ?? '') as String,

@@ -5,7 +5,8 @@ import 'photo.dart';
 import 'theme.dart';
 
 /// Detalle de un post (unificado para todos). Foto grande + reacciones +
-/// comentarios. Reacciones/comentarios son locales de la sesión por ahora.
+/// comentarios. Reacciones y comentarios son REALES: se guardan en el backend y
+/// los ven todas las participantes.
 class RemotePostDetalle extends StatefulWidget {
   final RemoteCapture cap;
   final String? avatarUrl;
@@ -17,10 +18,19 @@ class RemotePostDetalle extends StatefulWidget {
 
 class _RemotePostDetalleState extends State<RemotePostDetalle> {
   final _ctrl = TextEditingController();
-  final List<String> _comentarios = [];
-  String? _reaccion;
+  List<Map<String, dynamic>> _comentarios = [];
+  Map<String, int> _conteo = {}; // emoji -> cuántas reacciones
+  String? _miReaccion;
+  String? _miDevice;
+  bool _enviando = false;
 
   static const _emojis = ['🔥', '😂', '😮', '💚', '👀'];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
 
   @override
   void dispose() {
@@ -28,14 +38,58 @@ class _RemotePostDetalleState extends State<RemotePostDetalle> {
     super.dispose();
   }
 
-  void _enviar() {
-    final t = _ctrl.text.trim();
-    if (t.isEmpty) return;
+  Future<void> _cargar() async {
+    _miDevice = await Backend.deviceId();
+    await _recargar();
+  }
+
+  Future<void> _recargar() async {
+    final id = widget.cap.id;
+    if (id == null) return;
+    final coms = await Backend.comentariosDe(id);
+    final reacs = await Backend.reaccionesDe(id);
+    final conteo = <String, int>{};
+    String? mia;
+    for (final r in reacs) {
+      final e = r['emoji'] as String?;
+      if (e == null) continue;
+      conteo[e] = (conteo[e] ?? 0) + 1;
+      if (r['device_id'] == _miDevice) mia = e;
+    }
+    if (!mounted) return;
     setState(() {
-      _comentarios.add(t);
-      _ctrl.clear();
+      _comentarios = coms;
+      _conteo = conteo;
+      _miReaccion = mia;
     });
+  }
+
+  Future<void> _enviar() async {
+    final t = _ctrl.text.trim();
+    final id = widget.cap.id;
+    if (t.isEmpty || id == null || _enviando) return;
+    setState(() => _enviando = true);
+    _ctrl.clear();
     FocusScope.of(context).unfocus();
+    await Backend.comentar(id, t);
+    await _recargar();
+    if (mounted) setState(() => _enviando = false);
+  }
+
+  Future<void> _reaccionar(String e) async {
+    final id = widget.cap.id;
+    if (id == null) return;
+    final nueva = _miReaccion == e ? null : e; // toca la misma = la quita
+    setState(() {
+      // actualización optimista del conteo
+      if (_miReaccion != null) {
+        _conteo[_miReaccion!] = ((_conteo[_miReaccion!] ?? 1) - 1).clamp(0, 1 << 30);
+      }
+      if (nueva != null) _conteo[nueva] = (_conteo[nueva] ?? 0) + 1;
+      _miReaccion = nueva;
+    });
+    await Backend.reaccionar(id, nueva);
+    await _recargar();
   }
 
   String _rel(DateTime t) {
@@ -92,21 +146,33 @@ class _RemotePostDetalleState extends State<RemotePostDetalle> {
             children: [
               for (final e in _emojis)
                 GestureDetector(
-                  onTap: () {
-                    setState(() => _reaccion = _reaccion == e ? null : e);
-                  },
-                  child: Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _reaccion == e ? R.verde.withValues(alpha: 0.2) : R.oliva,
-                      border: Border.all(
-                          color: _reaccion == e ? R.verde : R.gris.withValues(alpha: 0.4),
-                          width: _reaccion == e ? 2 : 1),
-                    ),
-                    child:
-                        Center(child: Text(e, style: const TextStyle(fontSize: 24))),
+                  onTap: () => _reaccionar(e),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _miReaccion == e
+                              ? R.verde.withValues(alpha: 0.2)
+                              : R.oliva,
+                          border: Border.all(
+                              color: _miReaccion == e
+                                  ? R.verde
+                                  : R.gris.withValues(alpha: 0.4),
+                              width: _miReaccion == e ? 2 : 1),
+                        ),
+                        child: Center(
+                            child:
+                                Text(e, style: const TextStyle(fontSize: 24))),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        (_conteo[e] ?? 0) > 0 ? '${_conteo[e]}' : '',
+                        style: R.mono(size: 11, color: R.gris),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -133,10 +199,10 @@ class _RemotePostDetalleState extends State<RemotePostDetalle> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('tú',
+                        Text((com['alias'] ?? 'anónimo') as String,
                             style:
                                 R.display(size: 13, weight: FontWeight.w700)),
-                        Text(com,
+                        Text((com['texto'] ?? '') as String,
                             style:
                                 R.display(size: 14, weight: FontWeight.w400)),
                       ],
@@ -156,6 +222,7 @@ class _RemotePostDetalleState extends State<RemotePostDetalle> {
                 child: TextField(
                   controller: _ctrl,
                   style: R.display(size: 15),
+                  enabled: !_enviando,
                   decoration: InputDecoration(
                     hintText: 'agrega un comentario…',
                     hintStyle: R.mono(size: 13, color: R.gris),

@@ -35,7 +35,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>rastro añade el lugar a tus recuerdos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>rastro usa tus fotos para tu foto de perfil.</string>
+	<string>rastro usa tus fotos para mostrarte tus recuerdos.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

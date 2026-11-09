@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'backend.dart';
 import 'main.dart';
 import 'notifications.dart';
+import 'recuerdos.dart';
 import 'theme.dart';
 
 /// Crear / personalizar perfil: foto de perfil ELEGIDA por el usuario + nombre.
@@ -98,6 +99,10 @@ class _PerfilEditorState extends State<PerfilEditor> {
 
     if (widget.onboarding) {
       await Notifications.requestPermissions();
+      // Galería: se pide de forma explícita en el alta (acceso completo). Si la
+      // persona elige «fotos seleccionadas», la pantalla Recuerdos lo vuelve a
+      // pedir y le indica cómo cambiarlo.
+      await MotorRecuerdos.pedirAcceso();
       await Notifications.scheduleFromAgenda();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarded', true);

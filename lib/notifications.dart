@@ -88,9 +88,22 @@ class Notifications {
     }
   }
 
-  /// Programa la semana leyendo la **agenda** de Supabase (misma hora para todos),
-  /// con un jitter aleatorio de ±[jitterMin] minutos para que siga pareciendo
-  /// espontáneo. Si no hay agenda, cae a horas random locales.
+  /// Fecha de la sesión/exposición. Los recordatorios llegan hasta el día
+  /// anterior a esta fecha, sin importar cuándo se registró cada participante.
+  /// ⚠️ Si la sesión se mueve, hay que actualizar esto (y volver a llamar
+  /// [scheduleFromAgenda] desde la app, o esperar a que se reabra sola).
+  /// 2026-11-08: posible cambio a 16 nov por el lugar (sin confirmar aún).
+  static final DateTime sesionFecha = DateTime(2026, 11, 16);
+
+  /// Programa recordatorios leyendo la **agenda** de Supabase (misma hora para
+  /// todos los días de la semana, repetida en ciclo), con un jitter aleatorio
+  /// de ±[jitterMin] minutos para que siga pareciendo espontáneo.
+  ///
+  /// A diferencia de la versión anterior (7 recordatorios fijos desde el
+  /// alta), esto cubre TODOS los días que falten hasta el día antes de
+  /// [sesionFecha] — así nadie se queda sin avisos antes de la sesión solo por
+  /// haberse registrado unos días antes que otros. Si no hay agenda, cae a
+  /// horas random locales (7 días).
   static Future<void> scheduleFromAgenda({int jitterMin = 20}) async {
     await init();
     final agenda = await Backend.fetchAgenda();
@@ -101,8 +114,15 @@ class Notifications {
     final rnd = Random();
     final now = DateTime.now();
 
-    for (var i = 0; i < slots.length && i < 7; i++) {
-      final s = slots[i];
+    final limite =
+        DateTime(sesionFecha.year, sesionFecha.month, sesionFecha.day - 1);
+    var dias =
+        limite.difference(DateTime(now.year, now.month, now.day)).inDays + 1;
+    if (dias < 1) dias = 1; // la sesión ya pasó o es hoy: al menos un aviso
+    if (dias > 14) dias = 14; // tope de seguridad
+
+    for (var i = 0; i < dias; i++) {
+      final s = slots[i % slots.length]; // se repite el patrón si faltan más días que filas
       final jitter = rnd.nextInt(jitterMin * 2 + 1) - jitterMin;
       var when = DateTime(now.year, now.month, now.day + i, s.hora, s.minuto)
           .add(Duration(minutes: jitter));

@@ -25,6 +25,7 @@ class _BiometriaScreenState extends State<BiometriaScreen>
   _Fase _fase = _Fase.intro;
   File? _rostro;
   bool _finalizando = false;
+  bool _fallo = false; // el escaneo anterior no se completó
   late final AnimationController _scan;
 
   @override
@@ -55,8 +56,14 @@ class _BiometriaScreenState extends State<BiometriaScreen>
       );
       path = x?.path;
     }
-    if (path == null) return; // canceló
+    if (path == null) {
+      // Canceló o el escaneo no logró ver la cara a tiempo: se lo decimos, en
+      // vez de dejarla frente a una pantalla que no cambió.
+      if (mounted) setState(() => _fallo = true);
+      return;
+    }
     setState(() {
+      _fallo = false;
       _rostro = File(path!);
       _fase = _Fase.analizando;
     });
@@ -165,10 +172,46 @@ class _BiometriaScreenState extends State<BiometriaScreen>
   Widget _texto() {
     switch (_fase) {
       case _Fase.intro:
-        return Text(
-          'mira a la cámara y escanéate\npara crear tu avatar.',
-          textAlign: TextAlign.center,
-          style: R.mono(size: 12, color: R.gris),
+        // Pasos explícitos: antes solo decía «escanéate» y no se entendía qué
+        // había que hacer frente a la cámara.
+        final pasos = Platform.isIOS
+            ? const [
+                'Busca un lugar con buena luz',
+                'Centra tu cara dentro del círculo',
+                'Mueve la cabeza en círculo, despacio,\ncomo dibujando uno con la nariz,\nhasta llenar el anillo',
+              ]
+            : const [
+                'Busca un lugar con buena luz',
+                'Mira de frente a la cámara',
+                'Toma la selfie con tu cara centrada',
+              ];
+        return Column(
+          children: [
+            if (_fallo)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Text(
+                  'No pudimos completar el escaneo.\nIntenta de nuevo con más luz y la cara dentro del círculo.',
+                  textAlign: TextAlign.center,
+                  style: R.mono(size: 12, color: R.verde),
+                ),
+              ),
+            for (var i = 0; i < pasos.length; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${i + 1}', style: R.mono(size: 13, color: R.verde)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(pasos[i],
+                          style: R.mono(size: 12, color: R.papel)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         );
       case _Fase.analizando:
         return Text('CREANDO TU AVATAR…',
@@ -188,7 +231,7 @@ class _BiometriaScreenState extends State<BiometriaScreen>
 
   Widget _boton() {
     final (label, onTap) = switch (_fase) {
-      _Fase.intro => ('ESCANEARME', _escanear),
+      _Fase.intro => (_fallo ? 'INTENTAR DE NUEVO' : 'EMPEZAR ESCANEO', _escanear),
       _Fase.analizando => ('CREANDO…', null),
       _Fase.listo => ('CONTINUAR', _finalizando ? null : _continuar),
     };

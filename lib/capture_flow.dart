@@ -119,6 +119,7 @@ Future<Capture?> captureMomento() async {
     lng: pos?.longitude,
     accuracy: pos?.accuracy,
   );
-  await CaptureStore.add(capture);
+  // NO se guarda aquí: la UI muestra una vista previa con Publicar / Repetir,
+  // y recién al publicar se persiste (ver CaptureStore.add en el feed).
   return capture;
 }

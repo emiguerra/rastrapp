@@ -3,16 +3,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'ajustes_screen.dart';
 import 'amigos_screen.dart';
 import 'backend.dart';
 import 'capture_flow.dart';
+import 'capture_preview.dart';
 import 'captures.dart';
 import 'dev_screen.dart';
 import 'notifications.dart';
 import 'otro_perfil_screen.dart';
 import 'perfil_screen.dart';
 import 'photo.dart';
+import 'recuerdos.dart';
+import 'recuerdos_screen.dart';
 import 'remote_post_detalle.dart';
 import 'terminos_screen.dart';
 import 'theme.dart';
@@ -67,12 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          Opacity(
-            opacity: 0.45,
-            child: Image.asset('assets/spray.png',
-                width: 420, fit: BoxFit.contain),
-          ),
-          const Center(child: Wordmark(size: 46)),
+          const Center(child: Wordmark(size: 44)),
           SafeArea(
             child: Align(
               alignment: Alignment.bottomCenter,
@@ -113,6 +110,64 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
   final _feedKey = GlobalKey<_FeedTabState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recuerdosSincronizar(); // lectura silenciosa, una sola vez
+      // Re-programa en cada apertura: así quien se registró antes y ya agotó
+      // su ventana fija de avisos queda cubierto hasta el día antes de la
+      // sesión. cancelAll + reprogramar es barato e idempotente.
+      Notifications.scheduleFromAgenda();
+      _avisoRecuerdos();
+    });
+  }
+
+  /// Aviso ÚNICO de la función «Recuerdos». Llega a quienes ya hicieron el alta
+  /// antes de que existiera (y a quien no concedió el acceso completo a la
+  /// galería). Se muestra una sola vez; Recuerdos sigue disponible en Memorias.
+  Future<void> _avisoRecuerdos() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('aviso_recuerdos_v1') ?? false) return;
+    // Si ya dio acceso completo no hace falta avisar.
+    if (await MotorRecuerdos.accesoActual() == AccesoGaleria.completo) {
+      await prefs.setBool('aviso_recuerdos_v1', true);
+      return;
+    }
+    await prefs.setBool('aviso_recuerdos_v1', true); // una sola vez, pase lo que pase
+    if (!mounted) return;
+    final ver = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: R.oliva,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Nuevo: Un día como hoy',
+            style: R.display(size: 20, weight: FontWeight.w800)),
+        content: Text(
+          'Reencuéntrate con lo que viviste en esta fecha otros años. Para '
+          'encontrar tus fotos necesitamos acceso a todas ellas.',
+          style: R.display(size: 15, weight: FontWeight.w400, color: R.gris),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('ahora no', style: R.mono(size: 13, color: R.gris)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('verlo',
+                style: R.mono(size: 13, color: R.verde)),
+          ),
+        ],
+      ),
+    );
+    if (ver == true && mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const RecuerdosScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -232,20 +287,66 @@ class _FeedTabState extends State<_FeedTab> with WidgetsBindingObserver {
     _cargarTodo();
   }
 
+  // Mensaje breve abajo, en el estilo mono del app.
+  void _aviso(String txt, {SnackBarAction? accion}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: R.oliva,
+      content: Text(txt, style: R.mono(size: 12, color: R.papel)),
+      action: accion,
+    ));
+  }
+
   Future<void> capturar() async {
     final c = await captureMomento();
-    if (!mounted) return;
-    if (c != null) {
-      _reload();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        backgroundColor: R.oliva,
-        content: Text('¡momento publicado!',
-            style: R.mono(size: 12, color: R.verde)),
-      ));
-      Backend.uploadCapture(c).then((_) {
-        if (mounted) _cargarTodo();
-      });
+    if (!mounted || c == null) return;
+
+    // GPS obligatorio: sin ubicación la captura no sirve para rastro. No se
+    // publica ni se sube nada; se pide activar el GPS y repetir.
+    if (!c.hasGps) {
+      _aviso('No registramos tu ubicación. Activa el GPS y toma de nuevo.',
+          accion: SnackBarAction(
+            label: 'Reintentar',
+            textColor: R.verde,
+            onPressed: capturar,
+          ));
+      return;
     }
+
+    // Vista previa: publicar o repetir antes de guardar.
+    final res = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CapturePreview(capture: c)),
+    );
+    if (!mounted) return;
+    if (res == true) {
+      await CaptureStore.add(c);
+      _reload();
+      _aviso('publicando tu momento…');
+      // Esperamos el resultado real: "publicado" solo si quedó registrada.
+      final r = await Backend.uploadCapture(c);
+      if (!mounted) return;
+      if (r == UploadResult.ok) {
+        _aviso('¡momento publicado!');
+        _cargarTodo();
+      } else if (r == UploadResult.sinGps) {
+        _aviso('Sin ubicación: tu momento no se publicó.');
+      } else {
+        _aviso('Sin conexión: no se pudo publicar.',
+            accion: SnackBarAction(
+              label: 'Reintentar',
+              textColor: R.verde,
+              onPressed: () async {
+                final r2 = await Backend.uploadCapture(c);
+                if (mounted && r2 == UploadResult.ok) {
+                  _aviso('¡momento publicado!');
+                  _cargarTodo();
+                }
+              },
+            ));
+      }
+    } else if (res == false) {
+      capturar(); // repetir
+    }
+    // null → canceló, no hace nada
   }
 
   void _toggleDev() {

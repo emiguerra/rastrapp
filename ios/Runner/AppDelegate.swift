@@ -219,10 +219,13 @@ final class MultiCamController: UIViewController {
     session.addOutputWithNoConnections(frontOutput)
     if let frontPort = frontInput.ports(for: .video, sourceDeviceType: frontCam.deviceType, sourceDevicePosition: .front).first {
       let conn = AVCaptureConnection(inputPorts: [frontPort], output: frontOutput)
+      if conn.isVideoMirroringSupported { conn.automaticallyAdjustsVideoMirroring = false; conn.isVideoMirrored = false }
       if session.canAddConnection(conn) { session.addConnection(conn) }
       if let pl = frontPreview {
         pl.setSessionWithNoConnection(session)
         let pconn = AVCaptureConnection(inputPort: frontPort, videoPreviewLayer: pl)
+        // Preview chico CON espejo (natural al encuadrar); la foto guardada
+        // (conn, arriba) queda sin espejo.
         if pconn.isVideoMirroringSupported { pconn.automaticallyAdjustsVideoMirroring = false; pconn.isVideoMirrored = true }
         if session.canAddConnection(pconn) { session.addConnection(pconn) }
       }
@@ -292,9 +295,10 @@ final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
 
 // ──────────────────────────── Escáner facial en vivo (estilo banco)
 
-/// Verificación biométrica interactiva: preview frontal en vivo + detección de
-/// rostro real (Vision). El anillo se llena mientras hay un rostro centrado; al
-/// completarse, captura el rostro de referencia y lo devuelve.
+/// Verificación biométrica interactiva: preview frontal en vivo (sin espejo, al
+/// igual que la foto final) + detección de rostro real (Vision). Primero centra
+/// y toma la foto de referencia (solo si sale nítida); luego pide seguir con la
+/// nariz un punto que salta de segmento en segmento hasta completar el anillo.
 final class FaceScanController: UIViewController,
     AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate {
 
@@ -310,23 +314,26 @@ final class FaceScanController: UIViewController,
   private let promptLabel = UILabel()
   private var ovalRect = CGRect.zero
 
-  // Enrolamiento por pasos: el usuario mueve la cabeza (estilo Face ID).
-  private struct Paso { let prompt: String; let ok: (Double, Double) -> Bool }
-  private let pasos: [Paso] = [
-    Paso(prompt: "Mira de frente a la cámara") { yaw, box in abs(yaw) < 0.14 && box > 0.17 },
-    Paso(prompt: "Acércate un poco") { _, box in box > 0.33 },
-    Paso(prompt: "Gira la cabeza a un lado") { yaw, _ in yaw > 0.27 },
-    Paso(prompt: "Ahora gírala al otro lado") { yaw, _ in yaw < -0.27 },
-  ]
-  private var pasoIdx = 0
-  private var hold = 0
+  // Enrolamiento por PUNTO A SEGUIR: en vez de pedir que "dibuje un círculo"
+  // (poco intuitivo, no queda claro hacia dónde ni qué tan rápido), se marca un
+  // punto en el anillo y la persona mueve la nariz hasta él; al llegar, se
+  // cubre ese segmento y el punto salta al siguiente. Secuencial y concreto.
+  private let segTotal = 10
+  private var cubiertos = Set<Int>()
+  private var objetivo = 0
   private var yaw: Double = 0
+  private var pitch: Double = 0
   private var boxW: Double = 0
   private var avatarPath: String?
-  private var capturaPedida = false
+  private var avatarCapturado = false
+  private var calidad: Float = 0 // VNDetectFaceCaptureQualityRequest: 0..1, incluye nitidez/luz/pose
+  private let calidadMinima: Float = 0.25 // ⚠️ umbral empírico, ajustar tras probar en el teléfono
   private var frameCount = 0
   private var finished = false
   private var timer: Timer?
+  private var inicio = Date()
+  private let ringFill = CAShapeLayer()
+  private let objetivoDot = CAShapeLayer() // punto que la persona debe seguir con la nariz
 
   init(onDone: @escaping (String?) -> Void) {
     self.onDone = onDone
@@ -346,13 +353,12 @@ final class FaceScanController: UIViewController,
 
   // ── UI ──
   private func setupUI() {
-    let pv = AVCaptureVideoPreviewLayer(session: session)
+    // Sin sesión todavía: la conexión (y su mirroring) se arma a mano en
+    // configure(), igual que en MultiCamController — así se controla de verdad
+    // y no depende de que iOS la conecte sola.
+    let pv = AVCaptureVideoPreviewLayer()
     pv.videoGravity = .resizeAspectFill
     pv.frame = view.bounds
-    if let conn = pv.connection, conn.isVideoMirroringSupported {
-      conn.automaticallyAdjustsVideoMirroring = false
-      conn.isVideoMirrored = false // sin espejo: muestra la imagen real
-    }
     view.layer.addSublayer(pv)
     preview = pv
 
@@ -360,14 +366,21 @@ final class FaceScanController: UIViewController,
     dimLayer.fillColor = UIColor.black.withAlphaComponent(0.6).cgColor
     view.layer.addSublayer(dimLayer)
 
+    // Anillo base tenue + segmentos que se llenan (blanco).
     ring.fillColor = UIColor.clear.cgColor
-    ring.strokeColor = UIColor(red: 0.78, green: 0.95, blue: 0.11, alpha: 1).cgColor
-    ring.lineWidth = 5
-    ring.lineCap = .round
-    ring.strokeEnd = 0
+    ring.strokeColor = UIColor.white.withAlphaComponent(0.22).cgColor
+    ring.lineWidth = 6
     view.layer.addSublayer(ring)
+    ringFill.fillColor = UIColor.clear.cgColor
+    ringFill.strokeColor = UIColor.white.cgColor
+    ringFill.lineWidth = 6
+    ringFill.lineCap = .round
+    view.layer.addSublayer(ringFill)
 
-    promptLabel.text = "Sigue las instrucciones\npara registrar tu rostro"
+    objetivoDot.fillColor = UIColor(red: 0.78, green: 0.95, blue: 0.11, alpha: 1).cgColor
+    view.layer.addSublayer(objetivoDot)
+
+    promptLabel.text = "Centra tu cara en el círculo"
     promptLabel.textColor = .white
     promptLabel.font = .monospacedSystemFont(ofSize: 19, weight: .bold)
     promptLabel.textAlignment = .center
@@ -378,7 +391,7 @@ final class FaceScanController: UIViewController,
     // Instrucción fija arriba.
     let titulo = UILabel()
     titulo.text = "REGISTRO FACIAL"
-    titulo.textColor = UIColor(red: 0.78, green: 0.95, blue: 0.11, alpha: 1)
+    titulo.textColor = .white
     titulo.font = .monospacedSystemFont(ofSize: 13, weight: .bold)
     titulo.textAlignment = .center
     titulo.translatesAutoresizingMaskIntoConstraints = false
@@ -409,81 +422,161 @@ final class FaceScanController: UIViewController,
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     preview?.frame = view.bounds
-    let w = min(view.bounds.width * 0.72, 300)
-    let h = w * 1.28
-    ovalRect = CGRect(x: (view.bounds.width - w) / 2,
-                      y: view.bounds.height * 0.26,
-                      width: w, height: h)
-    let oval = UIBezierPath(ovalIn: ovalRect)
+    let d = min(view.bounds.width * 0.88, 380)
+    ovalRect = CGRect(x: (view.bounds.width - d) / 2,
+                      y: view.bounds.height * 0.20,
+                      width: d, height: d)
+    let circle = UIBezierPath(ovalIn: ovalRect)
     let full = UIBezierPath(rect: view.bounds)
-    full.append(oval)
+    full.append(circle)
     dimLayer.path = full.cgPath
-    ring.path = oval.cgPath
+    ring.path = circle.cgPath
   }
 
   // ── Sesión ──
+  // Conexiones armadas a mano (sin addInput/addOutput automáticos) para que el
+  // mirroring de cada una (preview, video de análisis, foto) quede fijo en
+  // false de verdad, sin que iOS lo reponga a su default al conectar solo.
   private func configure() {
     session.beginConfiguration()
     session.sessionPreset = .photo
     guard let cam = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
           let input = try? AVCaptureDeviceInput(device: cam),
           session.canAddInput(input) else { session.commitConfiguration(); finish(nil); return }
-    session.addInput(input)
+    session.addInputWithNoConnections(input)
+    guard let port = input.ports(for: .video, sourceDeviceType: cam.deviceType,
+                                  sourceDevicePosition: .front).first else {
+      session.commitConfiguration(); finish(nil); return
+    }
+
     videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
     videoOutput.alwaysDiscardsLateVideoFrames = true
     videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
-    if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
-    if session.canAddOutput(photoOutput) { session.addOutput(photoOutput) }
-    // Sin espejo también en la foto capturada.
-    if let pc = photoOutput.connection(with: .video), pc.isVideoMirroringSupported {
-      pc.automaticallyAdjustsVideoMirroring = false
-      pc.isVideoMirrored = false
+    if session.canAddOutput(videoOutput) { session.addOutputWithNoConnections(videoOutput) }
+    if session.canAddOutput(photoOutput) { session.addOutputWithNoConnections(photoOutput) }
+
+    let videoConn = AVCaptureConnection(inputPorts: [port], output: videoOutput)
+    if videoConn.isVideoMirroringSupported {
+      videoConn.automaticallyAdjustsVideoMirroring = false
+      videoConn.isVideoMirrored = false
     }
+    if session.canAddConnection(videoConn) { session.addConnection(videoConn) }
+
+    let photoConn = AVCaptureConnection(inputPorts: [port], output: photoOutput)
+    if photoConn.isVideoMirroringSupported {
+      photoConn.automaticallyAdjustsVideoMirroring = false
+      photoConn.isVideoMirrored = false
+    }
+    if session.canAddConnection(photoConn) { session.addConnection(photoConn) }
+
+    if let pv = preview {
+      pv.setSessionWithNoConnection(session)
+      let pvConn = AVCaptureConnection(inputPort: port, videoPreviewLayer: pv)
+      // El preview EN VIVO sí va espejado: moverse a la derecha debe verse a
+      // la derecha en pantalla, como en un espejo (si no, se siente invertido
+      // al seguir el punto). La foto final (photoConn, arriba) queda SIN
+      // espejo: así se ve "normal"/consistente cuando se mira después.
+      if pvConn.isVideoMirroringSupported {
+        pvConn.automaticallyAdjustsVideoMirroring = false
+        pvConn.isVideoMirrored = true
+      }
+      if session.canAddConnection(pvConn) { session.addConnection(pvConn) }
+    }
+
     session.commitConfiguration()
     session.startRunning()
-    DispatchQueue.main.async {
-      // El espejo del preview hay que apagarlo con la conexión ya viva.
-      if let c = self.preview?.connection, c.isVideoMirroringSupported {
-        c.automaticallyAdjustsVideoMirroring = false
-        c.isVideoMirrored = false
-      }
-      self.startTimer()
-    }
+    DispatchQueue.main.async { self.startTimer() }
   }
 
   private func startTimer() {
-    timer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
+    inicio = Date()
+    timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
       self?.tick()
     }
   }
 
   private func tick() {
     if finished { return }
-    let total = pasos.count
-    if pasoIdx >= total {
-      promptLabel.text = "¡listo!"
-      ring.strokeEnd = 1
-      if avatarPath != nil { finish(avatarPath) }
-      return
-    }
-    let paso = pasos[pasoIdx]
-    let detecta = paso.ok(yaw, boxW)
-    promptLabel.text = "paso \(pasoIdx + 1) de \(pasos.count)\n\(paso.prompt)"
-    + (detecta ? "\n✓" : "")
-    hold = detecta ? hold + 1 : max(0, hold - 1)
-    if hold >= 7 {                       // mantenido ~0.45 s
-      if pasoIdx == 0, !capturaPedida {  // el avatar es la toma de frente
-        capturaPedida = true
-        sessionQueue.async {
-          self.photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
-        }
+    let mag = (yaw * yaw + pitch * pitch).squareRoot()
+
+    // Avatar: la toma de frente (una sola vez, cuando está centrado Y nítida).
+    // Si la cara está centrada pero la calidad es baja (borrosa, poca luz, en
+    // movimiento), NO se acepta: se sigue esperando un frame mejor.
+    let centrada = mag < 0.12 && boxW > 0.17
+    if !avatarCapturado, centrada, calidad >= calidadMinima {
+      avatarCapturado = true
+      sessionQueue.async {
+        self.photoOutput.capturePhoto(with: AVCapturePhotoSettings(), delegate: self)
       }
-      pasoIdx += 1
-      hold = 0
-      CATransaction.begin()
-      CATransaction.setAnimationDuration(0.25)
-      ring.strokeEnd = CGFloat(pasoIdx) / CGFloat(total)
-      CATransaction.commit()
+    }
+
+    // Una vez tomada la foto de referencia, hay que alcanzar con la nariz el
+    // punto marcado en el anillo; al llegar, ese segmento se cubre y el punto
+    // salta al siguiente segmento sin cubrir (secuencial, no circular libre).
+    if avatarCapturado, mag > 0.10 {
+      let ang = atan2(pitch, -yaw) // −yaw: compensa el espejo del preview
+      var seg = Int((ang / (2 * .pi) * Double(segTotal)).rounded())
+      seg = ((seg % segTotal) + segTotal) % segTotal
+      let dist = min((seg - objetivo + segTotal) % segTotal,
+                      (objetivo - seg + segTotal) % segTotal)
+      if dist <= 1 {
+        cubiertos.insert(objetivo)
+        avanzarObjetivo()
+      }
+    }
+    dibujarSegmentos()
+
+    if !avatarCapturado, centrada, calidad < calidadMinima {
+      promptLabel.text = "Mantente firme y con buena luz"
+    } else if !avatarCapturado {
+      promptLabel.text = "Mira de frente a la cámara\ny centra tu cara en el círculo"
+    } else if cubiertos.count < segTotal {
+      let pct = min(100, cubiertos.count * 100 / segTotal)
+      promptLabel.text = "Sigue el punto con la nariz\n\(pct)%"
+    } else {
+      promptLabel.text = "¡Listo!"
+    }
+
+    let suficiente = cubiertos.count >= Int(Double(segTotal) * 0.8)
+    let timeout = Date().timeIntervalSince(inicio) > 28
+    if avatarPath != nil, suficiente {
+      finish(avatarPath)
+    } else if timeout {
+      finish(avatarPath)
+    }
+  }
+
+  private func avanzarObjetivo() {
+    var next = (objetivo + 1) % segTotal
+    var vueltas = 0
+    while cubiertos.contains(next), vueltas < segTotal {
+      next = (next + 1) % segTotal
+      vueltas += 1
+    }
+    objetivo = next
+  }
+
+  private func dibujarSegmentos() {
+    let center = CGPoint(x: ovalRect.midX, y: ovalRect.midY)
+    let radius = ovalRect.width / 2
+    let step = CGFloat(2 * Double.pi) / CGFloat(segTotal)
+    let path = UIBezierPath()
+    for i in cubiertos {
+      let a = CGFloat(i) * step
+      let s = a - step * 0.42, e = a + step * 0.42
+      path.move(to: CGPoint(x: center.x + radius * cos(s), y: center.y + radius * sin(s)))
+      path.addArc(withCenter: center, radius: radius, startAngle: s, endAngle: e, clockwise: true)
+    }
+    ringFill.path = path.cgPath
+
+    // El punto a seguir, visible solo durante el enrolamiento.
+    if avatarCapturado, cubiertos.count < segTotal {
+      let a = CGFloat(objetivo) * step
+      let p = CGPoint(x: center.x + radius * cos(a), y: center.y + radius * sin(a))
+      objetivoDot.path = UIBezierPath(ovalIn: CGRect(x: p.x - 9, y: p.y - 9, width: 18, height: 18)).cgPath
+      objetivoDot.isHidden = false
+    } else {
+      objetivoDot.isHidden = true
     }
   }
 
@@ -494,13 +587,19 @@ final class FaceScanController: UIViewController,
     if frameCount % 2 != 0 { return }
     guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
     let req = VNDetectFaceRectanglesRequest()
+    req.revision = VNDetectFaceRectanglesRequestRevision3  // habilita pitch (iOS 15+)
+    let qualityReq = VNDetectFaceCaptureQualityRequest() // nitidez/luz/pose, 0..1
     let handler = VNImageRequestHandler(cvPixelBuffer: pb, orientation: .leftMirrored, options: [:])
-    try? handler.perform([req])
+    try? handler.perform([req, qualityReq])
     let faces = req.results ?? []
     let face = faces.max(by: { $0.boundingBox.width < $1.boundingBox.width })
     let w = Double(face?.boundingBox.width ?? 0)
     let y = face?.yaw?.doubleValue ?? 0
-    DispatchQueue.main.async { self.boxW = w; self.yaw = y }
+    let p = face?.pitch?.doubleValue ?? 0
+    let q = (qualityReq.results ?? []).compactMap { $0.faceCaptureQuality }.max() ?? 0
+    DispatchQueue.main.async {
+      self.boxW = w; self.yaw = y; self.pitch = p; self.calidad = q
+    }
   }
 
   func photoOutput(_ output: AVCapturePhotoOutput,

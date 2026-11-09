@@ -170,16 +170,18 @@ class _AmigosScreenState extends State<AmigosScreen> {
           GestureDetector(
             onTap: () => _toggle(p),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
+                shape: BoxShape.circle,
                 color: esAmigo ? Colors.transparent : R.verde,
                 border: esAmigo ? Border.all(color: R.gris) : null,
-                borderRadius: BorderRadius.circular(999),
               ),
-              child: Text(esAmigo ? 'AMIGOS' : 'AGREGAR',
-                  style: R.mono(
-                      size: 11, color: esAmigo ? R.gris : R.negro)),
+              child: Icon(
+                esAmigo ? Icons.check : Icons.person_add_alt_1,
+                size: 20,
+                color: esAmigo ? R.gris : R.negro,
+              ),
             ),
           ),
         ],

@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'captures.dart';
+import 'dev_galeria_screen.dart';
 import 'notifications.dart';
 
 /// Modo desarrollador: la trastienda. Muestra lo que se extrajo (GPS, hora) de
@@ -97,6 +99,18 @@ class _DevScreenState extends State<DevScreen> {
                           label: const Text('Borrar todo'),
                           onPressed: caps.isEmpty ? null : _clear,
                         ),
+                        // Pieza de tesis. Solo en debug: en release ni aparece
+                        // y el permiso de galería tampoco existe en el build.
+                        if (kDebugMode)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.photo_library_outlined,
+                                size: 18),
+                            label: const Text('Galería (tesis)'),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const DevGaleriaScreen()),
+                            ),
+                          ),
                       ],
                     ),
                   ],
