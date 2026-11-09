@@ -2,7 +2,7 @@
 
 La cuenta de Apple Developer es **individual**, así que los miembros invitados no pueden crear certificados de distribución desde Xcode. Para eso usamos una **llave de la API de App Store Connect**: con ella, Xcode crea el certificado y el perfil de distribución de forma automática.
 
-- Team: `SBGFA6R968`
+- Team: `U5Q3CTMBW2`
 - Bundle ID: `xyz.piruetas.rastrapp`
 
 ## 1. Dueño de la cuenta: crear la llave (una sola vez)

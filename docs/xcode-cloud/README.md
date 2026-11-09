@@ -3,7 +3,7 @@
 Xcode Cloud compila rastrapp en los servidores de Apple y sube cada build a TestFlight, sin llaves `.p8` en nuestras máquinas. Reemplaza a `subir_testflight.sh` (ver `docs/testflight/README.md`), que sigue sirviendo como alternativa manual.
 
 - Repositorio: `github.com/rastrapp/rastrapp` (organización)
-- Team: `SBGFA6R968`
+- Team: `U5Q3CTMBW2`
 - Bundle ID: `xyz.piruetas.rastrapp`
 - Script de preparación: `ios/ci_scripts/ci_post_clone.sh`
 
