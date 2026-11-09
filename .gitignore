@@ -49,3 +49,7 @@ app.*.map.json
 
 # Credenciales locales (no versionar)
 lib/secrets.dart
+
+# Llaves y configuración para subir a TestFlight (nunca al repo)
+*.p8
+subir_testflight.env
