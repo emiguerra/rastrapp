@@ -34,17 +34,57 @@
   <p><strong>rastro</strong> es una aplicación para iOS y Android y, a la vez, un proyecto de investigación de tesis en Diseño de la Universidad Diego Portales (UDP), en Chile. Esta página explica cómo pedir que se borren tu cuenta y todos los datos asociados, qué se elimina y en cuánto tiempo.</p>
 
   <div class="caja">
-    <h2 style="margin-top:18px">Solicita la eliminación</h2>
-    <p>El correo se abre con el texto ya escrito. Solo completa tu alias y envíalo.</p>
-    <p><a class="boton" href="mailto:emilia.guerra@mail.udp.cl?subject=rastro%20%C2%B7%20Eliminar%20mi%20cuenta%20y%20mis%20datos&body=Hola%3A%0A%0APido%20que%20se%20eliminen%20mi%20cuenta%20de%20rastro%20y%20todos%20los%20datos%20asociados.%0A%0AMi%20alias%20en%20la%20app%3A%0AFecha%20aproximada%20en%20que%20me%20registr%C3%A9%3A%0A%0AEntiendo%20que%20se%20borran%20mis%20fotos%2C%20mi%20escaneo%20facial%2C%20mi%20foto%20de%20perfil%2C%20mis%20ubicaciones%20y%20mi%20perfil%2C%20y%20que%20esto%20no%20se%20puede%20deshacer.%0A">Eliminar mi cuenta y mis datos</a></p>
-    <p class="nota">Si el botón no funciona en tu teléfono, escribe a <a href="mailto:emilia.guerra@mail.udp.cl">emilia.guerra@mail.udp.cl</a> con el asunto <em>Eliminar mi cuenta y mis datos</em> e indica tu alias.</p>
+    <h2 style="margin-top:18px">Elimina tus datos ahora</h2>
+    <p>Escribe tu <strong>alias</strong> de la app. El borrado es inmediato y no se puede deshacer.</p>
+    <form id="formBorrar" onsubmit="return false">
+      <input id="aliasBorrar" type="text" placeholder="tu alias en la app" autocomplete="off"
+        style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid var(--linea);background:var(--fondo);color:var(--texto);font:inherit;margin:8px 0">
+      <p class="nota" style="margin:4px 0 14px">
+        rastro no pide correo ni teléfono al registrarte, así que el alias es la única forma de
+        encontrar tus datos — <strong>cualquiera que escriba un alias puede borrar esa cuenta</strong>,
+        no se verifica que seas tú. Si eso te preocupa, usa el correo de abajo en vez de este botón.
+      </p>
+      <button class="boton" id="btnBorrarAhora" type="submit">Eliminar mi cuenta y mis datos</button>
+    </form>
+    <p id="resultadoBorrado" class="nota" style="margin-top:14px"></p>
+    <p class="nota" style="margin-top:18px">¿Preferís pedirlo por correo en vez del botón de arriba? <a href="mailto:emilia.guerra@mail.udp.cl?subject=rastro%20%C2%B7%20Eliminar%20mi%20cuenta%20y%20mis%20datos&body=Hola%3A%0A%0APido%20que%20se%20eliminen%20mi%20cuenta%20de%20rastro%20y%20todos%20los%20datos%20asociados.%0A%0AMi%20alias%20en%20la%20app%3A%0A%0AEntiendo%20que%20se%20borran%20mis%20fotos%2C%20mi%20escaneo%20facial%2C%20mi%20foto%20de%20perfil%2C%20mis%20ubicaciones%20y%20mi%20perfil%2C%20y%20que%20esto%20no%20se%20puede%20deshacer.%0A">escribe acá</a> — toma hasta 30 días en vez de ser inmediato, pero queda un registro de la petición.</p>
   </div>
+
+  <script>
+    document.getElementById('formBorrar').addEventListener('submit', async () => {
+      const alias = document.getElementById('aliasBorrar').value.trim();
+      const resultado = document.getElementById('resultadoBorrado');
+      const boton = document.getElementById('btnBorrarAhora');
+      if (!alias) { resultado.textContent = 'Escribe tu alias primero.'; return; }
+      if (!confirm(`Vas a borrar TODO lo de "${alias}" de forma inmediata e irreversible. ¿Seguro?`)) return;
+      boton.disabled = true;
+      resultado.textContent = 'Borrando…';
+      try {
+        const r = await fetch('https://dlhjfaiichoesjjokpjc.supabase.co/functions/v1/eliminar-datos', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            apikey: 'sb_publishable_42O2RsaN7REFxlkfftIkHA_1hQvK7RA',
+            Authorization: 'Bearer sb_publishable_42O2RsaN7REFxlkfftIkHA_1hQvK7RA',
+          },
+          body: JSON.stringify({ alias }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `error ${r.status}`);
+        resultado.textContent = `Listo. Se borraron tus datos (${j.capturas_borradas} capturas incluidas). No queda nada que vincule ese alias a vos.`;
+      } catch (e) {
+        resultado.textContent = `No se pudo borrar automáticamente (${e.message}). Usa el correo de abajo.`;
+      } finally {
+        boton.disabled = false;
+      }
+    });
+  </script>
 
   <h2>Cómo funciona</h2>
   <ol>
-    <li>Envía la solicitud desde el botón de arriba e indica tu <strong>alias</strong> en la app. rastro no pide correo ni teléfono al registrarte, así que el alias es la única forma de encontrar tus datos: sin él no podemos identificarlos.</li>
-    <li>Te respondemos para confirmar que recibimos la solicitud y, si hace falta, verificar que la cuenta es tuya.</li>
-    <li>Borramos los datos y te avisamos cuando esté hecho.</li>
+    <li>Escribe tu <strong>alias</strong> en el botón de arriba. rastro no pide correo ni teléfono al registrarte, así que el alias es la única forma de encontrar tus datos: sin él no podemos identificarlos.</li>
+    <li>El borrado ocurre al instante — no hace falta que te respondamos primero.</li>
+    <li>Si preferís el correo en vez del botón, tardamos hasta 30 días y confirmamos antes de borrar.</li>
   </ol>
   <p>No necesitas dar explicaciones ni justificar el motivo. Si participaste en el estudio, esta solicitud vale además como retiro de tu consentimiento.</p>
 
